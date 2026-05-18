@@ -37,7 +37,12 @@ async function readState(): Promise<AppState> {
   try {
     const res = await list({ prefix: KEY, token, limit: 1 });
     if (res.blobs.length === 0) return emptyState();
-    const r = await fetch(res.blobs[0].url, { cache: "no-store" });
+    // Cache-bust both at the CDN edge (query param) and at the client (no-store).
+    const url = `${res.blobs[0].url}?_=${Date.now()}`;
+    const r = await fetch(url, {
+      cache: "no-store",
+      headers: { "cache-control": "no-cache" },
+    });
     if (!r.ok) return emptyState();
     return (await r.json()) as AppState;
   } catch (e) {
@@ -59,6 +64,7 @@ async function writeState(state: AppState): Promise<void> {
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
+    cacheControlMaxAge: 0,
     token,
   });
 }
