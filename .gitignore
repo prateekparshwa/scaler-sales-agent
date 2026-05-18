@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local-dev PDF fallback (Vercel Blob is used in prod)
+/public/pdfs
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
