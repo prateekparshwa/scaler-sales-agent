@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { listLeads, settings, upsertLead } from "@/lib/store";
+import { getSettings, listLeads, upsertLead } from "@/lib/store";
 import { Lead, LeadProfile } from "@/lib/types";
 
 const profileSchema = z.object({
@@ -23,7 +23,8 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  return NextResponse.json({ leads: listLeads() });
+  const leads = await listLeads();
+  return NextResponse.json({ leads });
 }
 
 export async function POST(req: Request) {
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+  const settings = await getSettings();
   if (!settings.bdaPhoneE164) {
     return NextResponse.json(
       { error: "Set the BDA WhatsApp number on the onboarding screen first." },
@@ -51,6 +53,6 @@ export async function POST(req: Request) {
     bdaPhoneE164: settings.bdaPhoneE164,
     status: "created",
   };
-  upsertLead(lead);
+  await upsertLead(lead);
   return NextResponse.json({ lead });
 }

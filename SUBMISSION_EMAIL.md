@@ -21,7 +21,7 @@ Hi Amar, Abhimanyu —
 **GitHub:** https://github.com/prateekparshwa/scaler-sales-agent (public)
 **Loom (<6 min):** `<LOOM_URL>`
 
-*Note: WhatsApp delivery uses Twilio Sandbox. Before testing, please send `join <phrase>` from your WhatsApp to `+1 415 523 8886`. The phrase is `<TWILIO_JOIN_PHRASE>` — get yours at twilio.com/console/sms/whatsapp/sandbox.*
+*Note: WhatsApp delivery uses the Twilio Sandbox. Before testing the app, please send the exact text **`join farther-experiment`** from your WhatsApp to **+1 415 523 8886**. You'll get a confirmation reply, after which messages from the deployed app will land on your number.*
 **README:** in the repo, three sections as required.
 
 Cheers,

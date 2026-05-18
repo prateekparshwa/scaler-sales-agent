@@ -12,7 +12,7 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
-  const lead = getLead(id);
+  const lead = await getLead(id);
   if (!lead) {
     return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
@@ -31,13 +31,13 @@ export async function POST(
     lead.sentMessages = [...(lead.sentMessages ?? []), { kind: "nudge", sid, at: Date.now() }];
     lead.status = "nudge_sent";
     lead.error = undefined;
-    upsertLead(lead);
+    await upsertLead(lead);
 
     return NextResponse.json({ lead, sid });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     lead.error = msg;
-    upsertLead(lead);
+    await upsertLead(lead);
     return NextResponse.json({ error: msg, lead }, { status: 500 });
   }
 }

@@ -1,31 +1,97 @@
+import { put, list } from "@vercel/blob";
+import fs from "node:fs";
+import path from "node:path";
 import { Lead } from "./types";
 
-// In-memory store. Survives within a single Node process; in serverless this
-// resets per cold-start. Fine for the demo since each lead's full pipeline runs
-// inside a single request chain (BDA performs all actions within minutes).
+// State lives in a single JSON document at "state/app.json".
+// On Vercel: persisted to Vercel Blob (read-modify-write per mutation).
+// Locally (no BLOB_READ_WRITE_TOKEN): persisted to .data/app.json on disk.
+// Reads are uncached so multiple serverless instances stay consistent.
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __leadStore: Map<string, Lead> | undefined;
-  // eslint-disable-next-line no-var
-  var __settingsStore: { bdaPhoneE164?: string } | undefined;
+interface AppState {
+  settings: { bdaPhoneE164?: string };
+  leads: Lead[];
 }
 
-export const leadStore: Map<string, Lead> =
-  globalThis.__leadStore ?? (globalThis.__leadStore = new Map());
+const KEY = "state/app.json";
+const LOCAL_FILE = path.join(process.cwd(), ".data", "app.json");
 
-export const settings: { bdaPhoneE164?: string } =
-  globalThis.__settingsStore ?? (globalThis.__settingsStore = {});
-
-export function getLead(id: string): Lead | undefined {
-  return leadStore.get(id);
+function emptyState(): AppState {
+  return { settings: {}, leads: [] };
 }
 
-export function upsertLead(lead: Lead): Lead {
-  leadStore.set(lead.id, lead);
+function blobToken(): string | undefined {
+  return process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+async function readState(): Promise<AppState> {
+  const token = blobToken();
+  if (!token) {
+    if (!fs.existsSync(LOCAL_FILE)) return emptyState();
+    try {
+      return JSON.parse(fs.readFileSync(LOCAL_FILE, "utf8")) as AppState;
+    } catch {
+      return emptyState();
+    }
+  }
+  try {
+    const res = await list({ prefix: KEY, token, limit: 1 });
+    if (res.blobs.length === 0) return emptyState();
+    const r = await fetch(res.blobs[0].url, { cache: "no-store" });
+    if (!r.ok) return emptyState();
+    return (await r.json()) as AppState;
+  } catch (e) {
+    console.warn("[store] readState failed, returning empty:", e);
+    return emptyState();
+  }
+}
+
+async function writeState(state: AppState): Promise<void> {
+  const token = blobToken();
+  if (!token) {
+    const dir = path.dirname(LOCAL_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(LOCAL_FILE, JSON.stringify(state));
+    return;
+  }
+  await put(KEY, JSON.stringify(state), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    token,
+  });
+}
+
+export async function getSettings(): Promise<{ bdaPhoneE164?: string }> {
+  const s = await readState();
+  return s.settings;
+}
+
+export async function setSettings(
+  next: { bdaPhoneE164?: string }
+): Promise<{ bdaPhoneE164?: string }> {
+  const s = await readState();
+  s.settings = { ...s.settings, ...next };
+  await writeState(s);
+  return s.settings;
+}
+
+export async function getLead(id: string): Promise<Lead | undefined> {
+  const s = await readState();
+  return s.leads.find((l) => l.id === id);
+}
+
+export async function upsertLead(lead: Lead): Promise<Lead> {
+  const s = await readState();
+  const idx = s.leads.findIndex((l) => l.id === lead.id);
+  if (idx === -1) s.leads.push(lead);
+  else s.leads[idx] = lead;
+  await writeState(s);
   return lead;
 }
 
-export function listLeads(): Lead[] {
-  return Array.from(leadStore.values()).sort((a, b) => b.createdAt - a.createdAt);
+export async function listLeads(): Promise<Lead[]> {
+  const s = await readState();
+  return s.leads.slice().sort((a, b) => b.createdAt - a.createdAt);
 }

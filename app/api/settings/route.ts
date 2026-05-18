@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { settings } from "@/lib/store";
+import { getSettings, setSettings } from "@/lib/store";
 
 export async function GET() {
-  return NextResponse.json({ bdaPhoneE164: settings.bdaPhoneE164 ?? null });
+  const s = await getSettings();
+  return NextResponse.json({ bdaPhoneE164: s.bdaPhoneE164 ?? null });
 }
 
 export async function POST(req: Request) {
@@ -13,6 +14,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  settings.bdaPhoneE164 = bdaPhoneE164;
-  return NextResponse.json({ ok: true, bdaPhoneE164 });
+  const next = await setSettings({ bdaPhoneE164 });
+  return NextResponse.json({ ok: true, bdaPhoneE164: next.bdaPhoneE164 });
 }
