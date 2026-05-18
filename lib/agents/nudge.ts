@@ -11,21 +11,23 @@ VOICE:
 - Use the lead's first name. Use plain English.
 - Mark "inferred" vs "fact" honestly — never present a guess as fact.
 
-OUTPUT: return JSON matching this exact shape:
+HARD LENGTH BUDGET: the entire formatted message must fit under 1500 characters on WhatsApp. Keep every field TIGHT.
+
+OUTPUT: return JSON matching this exact shape (respect the char caps STRICTLY):
 {
-  "oneLiner": "<one tight line that captures who the lead is and the core thing to know>",
-  "whoTheyAre": "<2-3 sentences in plain English. Who, where, what they care about. Reference their actual profile facts.>",
-  "persona": "<the archetype label, e.g. 'TCS engineer doing ROI math on a switch' — short>",
+  "oneLiner": "<≤120 chars. The core thing to know.>",
+  "whoTheyAre": "<≤200 chars. Plain English. Reference their actual profile facts.>",
+  "persona": "<≤60 chars. Archetype label.>",
   "angles": [
-    {"angle": "<short title of the angle>", "why": "<one line: WHY this angle resonates for THIS lead, tied to something real about them>"}
-    // 2-3 angles, persona-specific. Not generic.
+    {"angle": "<≤40 chars>", "why": "<≤90 chars: why this resonates for THIS lead>"}
+    // exactly 3 angles
   ],
   "objections": [
-    {"objection": "<the objection in lead's likely phrasing>", "handle": "<one-line handle the BDA can use>"}
-    // 2-3 objections. The handles must be honest — no fabricated guarantees.
+    {"objection": "<≤60 chars: the lead's likely phrasing>", "handle": "<≤90 chars: one-line honest handle>"}
+    // exactly 2 objections
   ],
-  "openingHook": "<one suggested opening line for the call, ≤25 words, persona-tuned. NOT 'Hi this is X from Scaler' — something that earns the next 30 seconds>",
-  "inferredVsFact": "<one line listing what's inferred from sparse data vs what's verified from the profile. Example: 'FACT: 4yrs TCS, AWS cert. INFERRED: cost-skeptic given his Coursera comparison framing.'>"
+  "openingHook": "<≤140 chars. Persona-tuned. NOT 'Hi this is X from Scaler'.>",
+  "inferredVsFact": "<≤130 chars. Example: 'FACT: 4yrs TCS, AWS cert. INFERRED: cost-skeptic.'>"
 }
 
 ANTI-PATTERNS to avoid:
@@ -74,7 +76,7 @@ export function formatNudgeForWhatsApp(n: Nudge, leadName: string): string {
     .map((o) => `• "${o.objection}"\n   → ${o.handle}`)
     .join("\n");
 
-  return `*PRE-CALL: ${leadName}* 🧠
+  const body = `*PRE-CALL: ${leadName}* 🧠
 
 ${n.oneLiner}
 
@@ -93,4 +95,8 @@ ${objections}
 "${n.openingHook}"
 
 _${n.inferredVsFact}_`;
+
+  // Twilio WhatsApp caps a single message at 1600 chars.
+  // Safety net in case the LLM ignored the prompt's length budget.
+  return body.length <= 1500 ? body : body.slice(0, 1497) + "...";
 }
