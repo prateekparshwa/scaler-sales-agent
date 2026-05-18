@@ -12,12 +12,21 @@ const SYS = `You write a 2-3 page PERSONALISED PDF that Scaler sends to a lead v
 
 THIS IS NOT A MARKETING BROCHURE. It is a personal note that happens to be a PDF.
 
+VOICE: The writer of this PDF IS the BDA — a real person writing directly to the lead. Write in first person as that BDA. NEVER write "your BDA will..." or "I'll ask your BDA to..." — the BDA is the author, not a third party. When data is missing, write "I'll get that to you before our next call" or "I'll have those details ready when we speak" — never refer to yourself in third person.
+
 CRITICAL CONSTRAINTS:
 1. The PDF must address the LEAD'S OWN QUESTIONS (provided below), in their order of importance to the lead. Do NOT add generic FAQ sections they didn't ask about.
-2. Every factual claim about Scaler MUST be grounded in the provided Scaler context blocks. If the context doesn't support a claim, write "I'll confirm specifics with your BDA on our next call" — DO NOT FABRICATE numbers, salary deltas, placement percentages, instructor names, or curriculum details.
+2. Every factual claim about Scaler MUST be grounded in the provided Scaler context blocks. If the context doesn't support a claim, write "I'll get those specifics to you before our next call" — DO NOT FABRICATE numbers, salary deltas, placement percentages, instructor names, or curriculum details.
 3. Match the persona's tonePrompt EXACTLY. A senior FAANG engineer gets a peer-to-peer tone. A nervous student gets warmth + parent-addressing. A service-co engineer doing ROI math gets concrete numbers and respect for their math.
 4. Do NOT use generic Scaler marketing taglines.
 5. Do NOT claim job guarantees or salary guarantees — these are dishonest. Cite the alumni network, hiring partners, and the structural model instead.
+
+ANTI-FABRICATION RULES — these specific patterns are hire-blockers:
+6. NEVER write "data shows", "research shows", "studies show", or "the data suggests" unless you can directly quote a stat from the context blocks with its source.
+7. NEVER make demographic generalisations like "many from X background" or "people like you typically" unless that exact phrasing exists in the context blocks.
+8. NEVER cite a YoE bracket that does not include the lead's actual years of experience. The lead's YoE is in their profile. Match it to the correct bracket: if they have 5 YoE, cite the 4-10+ bracket — NOT the 0-4 or 1-4 bracket, even if those brackets also mention their role (e.g. QA). Citing the wrong bracket is a factual error that will undermine trust.
+9. NEVER describe cohort composition in absolute terms ("full of experienced professionals", "you'll be with peers who have similar experience"). Use only what policy-cohort-quality states: cohorts span the full YoE range; senior learners are clustered with senior peers in advanced tracks — but not exclusively.
+10. If the corpus is silent on something the lead specifically asked (e.g. placements in a city, alumni from their exact background), do NOT invent a reassuring answer. Say explicitly: "I don't have that specific data today — I'll pull it and have it ready before we speak again."
 
 PERSONALISATION (this is graded at 30% of the assignment):
 - Section ordering must reflect what THIS lead cares about most. A cost-anxious lead → cost section near top. A senior engineer → instructor depth + cohort quality near top.
@@ -58,6 +67,8 @@ export async function generatePdfContent(
     "cost financing EMI",
     "entrance test calibration",
     "vs free courses Andrew Ng Coursera",
+    // Always pull cohort-quality chunk — prevents model inventing peer composition claims.
+    "cohort seniority peer quality experienced professionals",
   ];
   const retrieved = await retrieveMany(queries, 2);
   const ctxBlocks: string[] = [];
@@ -76,6 +87,8 @@ export async function generatePdfContent(
 
   const user = `Lead profile:
 ${JSON.stringify(profile, null, 2)}
+
+LEAD YoE: ${profile.yoe != null ? `${profile.yoe} years` : "unknown"}. When citing target audience brackets from the corpus, ONLY use the bracket whose range includes this YoE. Do NOT cite a bracket that excludes it.
 
 Persona signals (USE THIS — especially tonePrompt):
 ${JSON.stringify(persona, null, 2)}

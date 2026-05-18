@@ -56,6 +56,7 @@ function makeStyles(accent: string) {
       fontSize: 11,
       color: "#1E293B",
       marginBottom: 24,
+      textAlign: "justify",
     },
     section: {
       marginBottom: 18,
@@ -69,6 +70,7 @@ function makeStyles(accent: string) {
     sectionBody: {
       fontSize: 10.5,
       color: "#1E293B",
+      textAlign: "justify",
     },
     citation: {
       fontSize: 8,
@@ -85,6 +87,7 @@ function makeStyles(accent: string) {
       fontSize: 10.5,
       color: "#0F172A",
       marginBottom: 10,
+      textAlign: "justify",
     },
     ctaBox: {
       backgroundColor: accent,
@@ -146,7 +149,7 @@ function LeadDoc({ profile, content }: DocProps) {
 
         <View style={styles.closingBlock}>
           <Text style={styles.closingNote}>{content.closingNote}</Text>
-          <View style={styles.ctaBox}>
+          <View style={styles.ctaBox} wrap={false}>
             <Text style={styles.ctaText}>{content.cta}</Text>
           </View>
         </View>
@@ -167,5 +170,9 @@ export async function renderLeadPdf(
   profile: LeadProfile,
   content: PdfContent
 ): Promise<Buffer> {
-  return renderToBuffer(<LeadDoc profile={profile} content={content} />);
+  // Helvetica (the default react-pdf font) has no ₹ glyph — replace before rendering.
+  const sanitized = JSON.parse(
+    JSON.stringify(content).replace(/₹/g, "Rs.")
+  ) as PdfContent;
+  return renderToBuffer(<LeadDoc profile={profile} content={sanitized} />);
 }

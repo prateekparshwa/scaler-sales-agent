@@ -6,7 +6,6 @@ import { Lead } from "./types";
 // State lives in a single JSON document at "state/app.json".
 // On Vercel: persisted to Vercel Blob (read-modify-write per mutation).
 // Locally (no BLOB_READ_WRITE_TOKEN): persisted to .data/app.json on disk.
-// Reads are uncached so multiple serverless instances stay consistent.
 
 interface AppState {
   settings: { bdaPhoneE164?: string };
@@ -24,6 +23,28 @@ function blobToken(): string | undefined {
   return process.env.BLOB_READ_WRITE_TOKEN;
 }
 
+// Cache the blob URL after the first put() so subsequent readState() calls
+// skip list() entirely. list() has CDN-level caching that causes stale reads
+// immediately after a write; the direct URL fetch with cache-bust does not.
+// URL is stable because addRandomSuffix: false keeps the same path every write.
+let _blobUrl: string | undefined;
+
+// Hot in-memory cache for leads. Populated on every upsertLead/deleteLead/clearLeads
+// so getLead() always finds a freshly written lead on the same serverless instance
+// without waiting for Blob CDN propagation.
+const _leadCache = new Map<string, Lead>();
+
+// Discover the blob URL on a cold instance that hasn't written yet.
+// Retries the list() call to handle CDN lag after a recent write by another instance.
+async function discoverBlobUrl(token: string): Promise<string | undefined> {
+  for (let i = 0; i < 6; i++) {
+    const res = await list({ prefix: KEY, token, limit: 1 });
+    if (res.blobs.length > 0) return res.blobs[0].url;
+    if (i < 5) await new Promise((r) => setTimeout(r, 500));
+  }
+  return undefined;
+}
+
 async function readState(): Promise<AppState> {
   const token = blobToken();
   if (!token) {
@@ -35,13 +56,14 @@ async function readState(): Promise<AppState> {
     }
   }
   try {
-    const res = await list({ prefix: KEY, token, limit: 1 });
-    if (res.blobs.length === 0) return emptyState();
-    // Cache-bust both at the CDN edge (query param) and at the client (no-store).
-    const url = `${res.blobs[0].url}?_=${Date.now()}`;
-    const r = await fetch(url, {
+    if (!_blobUrl) {
+      _blobUrl = await discoverBlobUrl(token);
+      if (!_blobUrl) return emptyState();
+    }
+    // Cache-bust the CDN edge so we always get the latest content.
+    const r = await fetch(`${_blobUrl}?_=${Date.now()}`, {
       cache: "no-store",
-      headers: { "cache-control": "no-cache" },
+      headers: { "cache-control": "no-cache, no-store" },
     });
     if (!r.ok) return emptyState();
     return (await r.json()) as AppState;
@@ -59,7 +81,7 @@ async function writeState(state: AppState): Promise<void> {
     fs.writeFileSync(LOCAL_FILE, JSON.stringify(state));
     return;
   }
-  await put(KEY, JSON.stringify(state), {
+  const result = await put(KEY, JSON.stringify(state), {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
@@ -67,6 +89,8 @@ async function writeState(state: AppState): Promise<void> {
     cacheControlMaxAge: 0,
     token,
   });
+  // Cache the stable URL so future readState() calls on this instance skip list().
+  _blobUrl = result.url;
 }
 
 export async function getSettings(): Promise<{ bdaPhoneE164?: string }> {
@@ -84,11 +108,23 @@ export async function setSettings(
 }
 
 export async function getLead(id: string): Promise<Lead | undefined> {
-  const s = await readState();
-  return s.leads.find((l) => l.id === id);
+  // Hot cache hit — same instance that just wrote the lead.
+  if (_leadCache.has(id)) return _leadCache.get(id);
+  // Retry with back-off for cross-instance reads where Blob CDN may lag.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const s = await readState();
+    const lead = s.leads.find((l) => l.id === id);
+    if (lead) { _leadCache.set(id, lead); return lead; }
+    if (attempt < 4) {
+      _blobUrl = undefined; // Force re-discovery on next readState()
+      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+    }
+  }
+  return undefined;
 }
 
 export async function upsertLead(lead: Lead): Promise<Lead> {
+  _leadCache.set(lead.id, lead);
   const s = await readState();
   const idx = s.leads.findIndex((l) => l.id === lead.id);
   if (idx === -1) s.leads.push(lead);
@@ -100,4 +136,18 @@ export async function upsertLead(lead: Lead): Promise<Lead> {
 export async function listLeads(): Promise<Lead[]> {
   const s = await readState();
   return s.leads.slice().sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function deleteLead(id: string): Promise<void> {
+  _leadCache.delete(id);
+  const s = await readState();
+  s.leads = s.leads.filter((l) => l.id !== id);
+  await writeState(s);
+}
+
+export async function clearLeads(): Promise<void> {
+  _leadCache.clear();
+  const s = await readState();
+  s.leads = [];
+  await writeState(s);
 }

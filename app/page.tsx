@@ -14,9 +14,17 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [createStatus, setCreateStatus] = useState<"success" | "error" | null>(null);
 
-  // Form state
-  const [profileJson, setProfileJson] = useState("");
+  // Profile fields
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [company, setCompany] = useState("");
+  const [yoe, setYoe] = useState("");
+  const [intent, setIntent] = useState("");
+  const [linkedinSummary, setLinkedinSummary] = useState("");
+  // Other form state
   const [transcript, setTranscript] = useState("");
   const [leadPhone, setLeadPhone] = useState("");
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -24,11 +32,7 @@ export default function Home() {
 
   useEffect(() => {
     (async () => {
-      const s = await fetch("/api/settings").then((r) => r.json());
-      if (s.bdaPhoneE164) {
-        setBdaPhone(s.bdaPhoneE164);
-        setStep("dashboard");
-      }
+      await fetch("/api/settings");
       const l = await fetch("/api/leads").then((r) => r.json());
       setLeads(l.leads ?? []);
       const p = await fetch("/api/personas").then((r) => r.json());
@@ -56,8 +60,26 @@ export default function Home() {
     setLeads(l.leads ?? []);
   }
 
+  async function clearAllLeads() {
+    // Optimistically wipe UI immediately so the list empties without waiting for CDN read-after-write lag.
+    setLeads([]);
+    setActiveId(null);
+    setConfirmClear(false);
+    const res = await fetch("/api/leads", { method: "DELETE" });
+    if (!res.ok) {
+      // Server rejected — restore by re-fetching.
+      setError("Clear failed — please try again.");
+      await refreshLeads();
+    }
+  }
+
   function loadStandardPersona(p: StandardPersona) {
-    setProfileJson(JSON.stringify(p.profile, null, 2));
+    setName(p.profile.name ?? "");
+    setRole(p.profile.role ?? "");
+    setCompany(p.profile.company ?? "");
+    setYoe(p.profile.yoe != null ? String(p.profile.yoe) : "");
+    setIntent(p.profile.intent ?? "");
+    setLinkedinSummary(p.profile.linkedinSummary ?? "");
     setTranscript(p.transcript);
   }
 
@@ -81,14 +103,17 @@ export default function Home() {
 
   async function createLead() {
     setError(null);
+    setCreateStatus(null);
     setLoading(true);
     try {
-      let profile;
-      try {
-        profile = JSON.parse(profileJson);
-      } catch {
-        throw new Error("Profile is not valid JSON.");
-      }
+      const profile = {
+        name: name.trim(),
+        ...(role.trim() && { role: role.trim() }),
+        ...(company.trim() && { company: company.trim() }),
+        ...(yoe.trim() && { yoe: Number(yoe) }),
+        ...(intent.trim() && { intent: intent.trim() }),
+        ...(linkedinSummary.trim() && { linkedinSummary: linkedinSummary.trim() }),
+      };
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -100,14 +125,19 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // Optimistically prepend the new lead so it appears immediately,
+      // before Vercel Blob CDN propagates the write to the next read.
+      setLeads((prev) => [data.lead, ...prev]);
       setActiveId(data.lead.id);
-      setProfileJson("");
+      setName(""); setRole(""); setCompany(""); setYoe(""); setIntent(""); setLinkedinSummary("");
       setTranscript("");
       setLeadPhone("");
       setAudioFile(null);
-      await refreshLeads();
+      setCreateStatus("success");
+      setTimeout(() => setCreateStatus(null), 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setCreateStatus("error");
     } finally {
       setLoading(false);
     }
@@ -195,18 +225,35 @@ export default function Home() {
           </div>
         </div>
 
-        <div>
-          <label className="label">Lead profile (JSON)</label>
-          <textarea
-            className="textarea"
-            placeholder='{"name":"Jane Doe","role":"SDE","company":"...","yoe":3,"intent":"..."}'
-            value={profileJson}
-            onChange={(e) => setProfileJson(e.target.value)}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="label">Name <span className="text-red-500">*</span></label>
+            <input className="input" placeholder="Rohan Mehta" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Role</label>
+            <input className="input" placeholder="SDE-2" value={role} onChange={(e) => setRole(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Company</label>
+            <input className="input" placeholder="Infosys" value={company} onChange={(e) => setCompany(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Years of experience</label>
+            <input className="input" type="number" min={0} max={60} placeholder="4" value={yoe} onChange={(e) => setYoe(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Intent</label>
+            <input className="input" placeholder="switch to product co" value={intent} onChange={(e) => setIntent(e.target.value)} />
+          </div>
+          <div className="col-span-2">
+            <label className="label">LinkedIn bio / About (optional)</label>
+            <textarea className="textarea" rows={2} placeholder="Brief background from LinkedIn…" value={linkedinSummary} onChange={(e) => setLinkedinSummary(e.target.value)} />
+          </div>
         </div>
 
         <div>
-          <label className="label">Call transcript (text)</label>
+          <label className="label">Call transcript — optional before the call, needed for the PDF</label>
           <textarea
             className="textarea"
             rows={10}
@@ -214,17 +261,28 @@ export default function Home() {
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
           />
+          <p className="text-xs text-[color:var(--muted)] mt-1">
+            Leave blank to create the lead pre-call. You can add the transcript after the call directly on the lead card.
+          </p>
         </div>
 
         <div className="border-t border-[color:var(--border)] pt-4">
           <label className="label">…or upload a call recording (audio)</label>
-          <div className="flex gap-2">
-            <input
-              type="file"
-              accept="audio/*"
-              className="input flex-1"
-              onChange={(e) => setAudioFile(e.target.files?.[0] ?? null)}
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="btn btn-ghost cursor-pointer">
+              🎙 Choose audio file
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => setAudioFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {audioFile && (
+              <span className="text-xs text-[color:var(--muted)] truncate max-w-[180px]" title={audioFile.name}>
+                {audioFile.name}
+              </span>
+            )}
             <button
               className="btn btn-ghost"
               disabled={!audioFile || transcribing}
@@ -251,23 +309,58 @@ export default function Home() {
           </p>
         </div>
 
-        {error && (
+        {createStatus === "error" && error && (
           <div className="text-sm text-red-600 p-2 border border-red-200 rounded bg-red-50">
-            {error}
+            ✕ {error}
           </div>
         )}
 
         <button
-          className="btn btn-primary"
-          disabled={loading || !profileJson.trim()}
+          className={`btn w-full ${
+            createStatus === "success"
+              ? "bg-green-600 text-white border-green-600"
+              : createStatus === "error"
+              ? "bg-red-600 text-white border-red-600"
+              : "btn-primary"
+          }`}
+          disabled={loading || !name.trim() || !!createStatus}
           onClick={createLead}
         >
-          {loading ? "Creating…" : "Create lead"}
+          {loading
+            ? "Creating…"
+            : createStatus === "success"
+            ? "✓ Lead created!"
+            : createStatus === "error"
+            ? "✕ Failed — try again"
+            : "Create lead"}
         </button>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Leads</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Leads</h2>
+          {leads.length > 0 && !confirmClear && (
+            <button
+              className="btn btn-ghost text-xs text-red-500"
+              onClick={() => setConfirmClear(true)}
+            >
+              Clear all
+            </button>
+          )}
+          {confirmClear && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-red-600 font-medium">
+                Remove all {leads.length} lead{leads.length !== 1 ? "s" : ""}? This can&apos;t be undone.
+              </span>
+              <button className="btn btn-danger text-xs py-0.5 px-2" onClick={clearAllLeads}>
+                Yes, clear all
+              </button>
+              <button className="btn btn-ghost text-xs py-0.5 px-2" onClick={() => setConfirmClear(false)}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
         {leads.length === 0 && (
           <div className="card text-sm text-[color:var(--muted)]">
             No leads yet — create one on the left.
@@ -280,7 +373,15 @@ export default function Home() {
               lead={l}
               active={l.id === activeId}
               onSelect={() => setActiveId(l.id)}
-              onChanged={refreshLeads}
+              onChanged={(updated) =>
+                setLeads((prev) =>
+                  prev.map((x) => (x.id === updated.id ? updated : x))
+                )
+              }
+              onDeleted={() => {
+                if (activeId === l.id) setActiveId(null);
+                setLeads((prev) => prev.filter((x) => x.id !== l.id));
+              }}
             />
           ))}
         </div>
@@ -294,34 +395,78 @@ function LeadCard({
   active,
   onSelect,
   onChanged,
+  onDeleted,
 }: {
   lead: Lead;
   active: boolean;
   onSelect: () => void;
-  onChanged: () => Promise<void>;
+  onChanged: (updated: Lead) => void;
+  onDeleted: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [cover, setCover] = useState(lead.coverMessage ?? "");
+  const [transcriptEdit, setTranscriptEdit] = useState(lead.transcript ?? "");
+  const [transcriptBusy, setTranscriptBusy] = useState(false);
+  const [transcriptStatus, setTranscriptStatus] = useState<"saved" | "error" | null>(null);
+  const [cardAudioFile, setCardAudioFile] = useState<File | null>(null);
+  const [cardTranscribing, setCardTranscribing] = useState(false);
+  const [phoneEdit, setPhoneEdit] = useState(lead.leadPhoneE164 ?? "");
+  const [phoneStatus, setPhoneStatus] = useState<"saved" | "error" | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [pdfStep, setPdfStep] = useState(0);
+
+  const PDF_STEPS = [
+    "Extracting questions from transcript…",
+    "Building persona profile…",
+    "Retrieving Scaler programme details…",
+    "Generating personalised sections…",
+    "Rendering PDF…",
+    "Uploading…",
+  ];
+
+  useEffect(() => {
+    if (busy !== "pdf") { setPdfStep(0); return; }
+    const t = setInterval(() => setPdfStep((s) => Math.min(s + 1, PDF_STEPS.length - 1)), 4000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
 
   useEffect(() => {
     setCover(lead.coverMessage ?? "");
   }, [lead.coverMessage]);
 
+  useEffect(() => {
+    setTranscriptEdit(lead.transcript ?? "");
+  }, [lead.transcript]);
+
+  useEffect(() => {
+    setPhoneEdit(lead.leadPhoneE164 ?? "");
+  }, [lead.leadPhoneE164]);
+
   async function act(
     label: string,
     path: string,
     init: RequestInit = { method: "POST" }
-  ) {
+  ): Promise<boolean> {
     setBusy(label);
     setErr(null);
     try {
       const res = await fetch(path, init);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
-      await onChanged();
+      // Server may return plain-text on unhandled crash — parse gracefully.
+      let data: Record<string, unknown> = {};
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Server error (${res.status})`);
+      }
+      if (!res.ok) throw new Error((data.error as string) || "Failed");
+      if (data.lead) onChanged(data.lead as import("@/lib/types").Lead);
+      return true;
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
+      return false;
     } finally {
       setBusy(null);
     }
@@ -348,27 +493,93 @@ function LeadCard({
             {lead.profile.company ? ` · ${lead.profile.company}` : ""}
           </span>
         </button>
-        <span className={`badge badge-${lead.status}`}>
-          {lead.status.replace("_", " ")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`badge badge-${lead.status}`}>
+            {lead.status.replace("_", " ")}
+          </span>
+          <button
+            className="text-[color:var(--muted)] hover:text-red-500 text-lg leading-none"
+            title="Close lead"
+            onClick={() => setConfirmClose(true)}
+          >
+            ✕
+          </button>
+        </div>
       </header>
+
+      {confirmClose && (
+        <div className="mb-3 p-2 border border-red-200 bg-red-50 rounded text-xs flex items-center gap-2">
+          <span className="text-red-700 font-medium flex-1">
+            Remove this lead? This can&apos;t be undone.
+          </span>
+          <button
+            className="btn btn-danger text-xs py-0.5 px-2"
+            disabled={!!busy}
+            onClick={async () => {
+              setBusy("delete");
+              // Optimistically remove from UI before CDN round-trip.
+              onDeleted();
+              const res = await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
+              setBusy(null);
+              if (!res.ok) setErr("Remove failed — please reload.");
+            }}
+          >
+            {busy === "delete" ? "Removing…" : "Remove"}
+          </button>
+          <button
+            className="btn btn-ghost text-xs py-0.5 px-2"
+            onClick={() => setConfirmClose(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-3">
         <button
           className="btn btn-accent"
-          disabled={!!busy}
-          onClick={() => act("nudge", `/api/leads/${lead.id}/nudge`)}
+          disabled={!!busy || !!lead.nudge}
+          title={lead.nudge ? "Nudge already sent" : undefined}
+          onClick={() => act("nudge", `/api/leads/${lead.id}/nudge`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ profile: lead.profile, transcript: lead.transcript, bdaPhoneE164: lead.bdaPhoneE164 }),
+          })}
         >
-          {busy === "nudge" ? "Generating…" : "Generate pre-call nudge"}
+          {lead.nudge ? "Nudge sent ✓" : busy === "nudge" ? "Generating…" : "Generate pre-call nudge"}
         </button>
         <button
           className="btn btn-primary"
-          disabled={!!busy}
-          onClick={() => act("pdf", `/api/leads/${lead.id}/generate-pdf`)}
+          disabled={!!busy || !lead.transcript?.trim()}
+          title={!lead.transcript?.trim() ? "Save a call transcript first — use the transcript section below" : undefined}
+          onClick={() => act("pdf", `/api/leads/${lead.id}/generate-pdf`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ profile: lead.profile, transcript: lead.transcript, bdaPhoneE164: lead.bdaPhoneE164 }),
+          })}
         >
           {busy === "pdf" ? "Generating PDF…" : "Generate post-call PDF"}
         </button>
       </div>
+
+      {!lead.transcript?.trim() && (
+        <p className="text-xs text-[color:var(--muted)] mt-1">
+          📝 Add and save a transcript below (text or audio) to unlock the post-call PDF.
+        </p>
+      )}
+
+      {busy === "pdf" && (
+        <div className="text-xs text-[color:var(--muted)] border border-[color:var(--border)] rounded p-3 space-y-2">
+          {PDF_STEPS.map((step, i) => (
+            <div key={step} className={`flex items-center gap-2 transition-opacity duration-500 ${i > pdfStep ? "opacity-30" : "opacity-100"}`}>
+              <span className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] ${i < pdfStep ? "bg-green-500 text-white" : i === pdfStep ? "bg-sky-500 text-white animate-pulse" : "bg-slate-200"}`}>
+                {i < pdfStep ? "✓" : i + 1}
+              </span>
+              <span className={i === pdfStep ? "text-sky-600 font-medium" : ""}>{step}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {err && (
         <div className="text-sm text-red-600 p-2 border border-red-200 rounded bg-red-50 mb-2">
@@ -419,6 +630,90 @@ ${lead.nudge.inferredVsFact}`}
         </details>
       )}
 
+      {lead.status !== "approved_sent" && (
+        <details className="mb-3 text-sm">
+          <summary className="cursor-pointer font-medium">
+            📝 Call transcript {lead.transcript ? "(edit)" : "(add after call)"}
+          </summary>
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="btn btn-ghost cursor-pointer text-xs">
+                🎙 Choose audio file
+                <input
+                  type="file"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(e) => setCardAudioFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {cardAudioFile && (
+                <span className="text-xs text-[color:var(--muted)] truncate max-w-[160px]" title={cardAudioFile.name}>
+                  {cardAudioFile.name}
+                </span>
+              )}
+              <button
+                className="btn btn-ghost text-xs"
+                disabled={!cardAudioFile || cardTranscribing}
+                onClick={async () => {
+                  if (!cardAudioFile) return;
+                  setCardTranscribing(true);
+                  setErr(null);
+                  try {
+                    const fd = new FormData();
+                    fd.append("audio", cardAudioFile);
+                    const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Transcription failed");
+                    setTranscriptEdit(data.transcript);
+                    setCardAudioFile(null);
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setCardTranscribing(false);
+                  }
+                }}
+              >
+                {cardTranscribing ? "Transcribing…" : "Transcribe"}
+              </button>
+            </div>
+            <textarea
+              className="textarea text-xs"
+              rows={6}
+              value={transcriptEdit}
+              onChange={(e) => setTranscriptEdit(e.target.value)}
+              placeholder={"BDA: ...\nLead: ..."}
+            />
+            <button
+              className="btn btn-ghost"
+              disabled={transcriptBusy || transcriptEdit === (lead.transcript ?? "")}
+              onClick={async () => {
+                setTranscriptBusy(true);
+                setTranscriptStatus(null);
+                const ok = await act("transcript", `/api/leads/${lead.id}/transcript`, {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ transcript: transcriptEdit }),
+                });
+                setTranscriptBusy(false);
+                setTranscriptStatus(ok ? "saved" : "error");
+                if (ok) {
+                  setTimeout(() => setTranscriptStatus(null), 3000);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+            >
+              {transcriptBusy ? "Saving…" : "Save transcript"}
+            </button>
+            {transcriptStatus === "saved" && (
+              <span className="text-xs text-green-600 font-medium">✓ Transcript saved</span>
+            )}
+            {transcriptStatus === "error" && (
+              <span className="text-xs text-red-600 font-medium">✕ Save failed — try again</span>
+            )}
+          </div>
+        </details>
+      )}
+
       {lead.pdfContent && lead.pdfUrl && (
         <div className="mt-3 border-t border-[color:var(--border)] pt-3">
           <div className="text-sm font-semibold mb-2">
@@ -432,6 +727,48 @@ ${lead.nudge.inferredVsFact}`}
           >
             Open generated PDF ↗
           </a>
+
+          {!lead.leadPhoneE164 && (
+            <div className="mb-3 p-2 border border-amber-200 bg-amber-50 rounded text-xs">
+              <label className="label">
+                Lead&apos;s WhatsApp number — needed to send the PDF
+              </label>
+              <p className="text-[color:var(--muted)] mb-2">
+                Enter with country code (e.g. +91 98765 43210). The number must have joined the Twilio Sandbox.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  className="input flex-1"
+                  placeholder="+919876543210"
+                  value={phoneEdit}
+                  onChange={(e) => { setPhoneEdit(e.target.value); setPhoneStatus(null); }}
+                />
+                <button
+                  className="btn btn-ghost"
+                  disabled={!!busy || !phoneEdit.match(/^\+\d{8,15}$/)}
+                  onClick={async () => {
+                    setPhoneStatus(null);
+                    const ok = await act("save-phone", `/api/leads/${lead.id}/phone`, {
+                      method: "PATCH",
+                      headers: { "content-type": "application/json" },
+                      // Pass current lead so the route doesn't overwrite pdfContent with a stale Blob read.
+                      body: JSON.stringify({ leadPhoneE164: phoneEdit, lead }),
+                    });
+                    setPhoneStatus(ok ? "saved" : "error");
+                    if (ok) setTimeout(() => setPhoneStatus(null), 3000);
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+              {phoneStatus === "saved" && (
+                <p className="text-green-600 font-medium mt-1">✓ Number saved — you can now approve and send.</p>
+              )}
+              {phoneStatus === "error" && (
+                <p className="text-red-600 font-medium mt-1">✕ Save failed — check the format and try again.</p>
+              )}
+            </div>
+          )}
 
           <label className="label mt-2">WhatsApp cover message (editable)</label>
           <textarea
@@ -451,8 +788,12 @@ ${lead.nudge.inferredVsFact}`}
             </button>
             <button
               className="btn btn-success"
-              disabled={!!busy || lead.status === "approved_sent"}
-              onClick={() => act("approve", `/api/leads/${lead.id}/approve`)}
+              disabled={!!busy || lead.status === "approved_sent" || !lead.leadPhoneE164}
+              onClick={() => act("approve", `/api/leads/${lead.id}/approve`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ pdfUrl: lead.pdfUrl, coverMessage: cover, leadPhoneE164: lead.leadPhoneE164 }),
+              })}
             >
               {busy === "approve" ? "Sending…" : "✅ Approve & send to lead"}
             </button>

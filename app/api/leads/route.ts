@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { getSettings, listLeads, upsertLead } from "@/lib/store";
+import { getSettings, listLeads, upsertLead, clearLeads } from "@/lib/store";
 import { Lead, LeadProfile } from "@/lib/types";
 
 const profileSchema = z.object({
@@ -25,6 +25,11 @@ const createSchema = z.object({
 export async function GET() {
   const leads = await listLeads();
   return NextResponse.json({ leads });
+}
+
+export async function DELETE() {
+  await clearLeads();
+  return NextResponse.json({ ok: true });
 }
 
 export async function POST(req: Request) {
