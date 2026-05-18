@@ -56,8 +56,10 @@ export async function withRetry<T>(
 
 export const MODELS = {
   // Highest-quality generation for the lead-facing PDF.
-  // Default: gemini-2.5-flash (free 15 RPM / 1500 RPD). Set USE_GEMINI_PRO=1 if you have paid quota.
-  pdf: process.env.USE_GEMINI_PRO ? "gemini-2.5-pro" : "gemini-2.5-flash",
+  // Free-tier-safe default: gemini-2.5-flash-lite (30 RPM / 1000 RPD).
+  // Upgrade paths: set GEMINI_PDF_MODEL=gemini-2.5-flash (paid: stronger reasoning) or
+  // GEMINI_PDF_MODEL=gemini-2.5-pro (paid: strongest, slowest).
+  pdf: process.env.GEMINI_PDF_MODEL ?? "gemini-2.5-flash-lite",
   // Fast/cheap for BDA-only nudge, question extraction, persona inference, cover.
   // Flash-Lite: 30 RPM, 1000 RPD on free tier — keeps the multi-step pipeline within quota.
   fast: "gemini-2.5-flash-lite",
