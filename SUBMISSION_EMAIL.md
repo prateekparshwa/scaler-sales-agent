@@ -7,7 +7,7 @@
 
 Hi Amar, Abhimanyu —
 
-**Prateek Parshwa** · [LinkedIn — paste URL] · Currently building AI-native sales/sourcing tooling at Qalara. I want this role because Scaler is the rare place where shipping one AI workflow can move a real revenue metric the same week — and BDA effectiveness is exactly the kind of bounded, high-leverage problem I'd want to own.
+**Prateek Parshwa** · https://www.linkedin.com/in/prateekparshwa · Currently building AI-native sales/sourcing tooling at Qalara. I want this role because Scaler is the rare place where shipping one AI workflow can move a real revenue metric the same week — and BDA effectiveness is exactly the kind of bounded, high-leverage problem I'd want to own.
 
 **Three questions:**
 
@@ -29,9 +29,8 @@ Prateek
 
 ---
 
-## Notes for the user before sending
+## Notes for you before sending
 
-- Replace `<DEPLOYED_URL>`, `<GITHUB_URL>`, `<LOOM_URL>` with the real links.
-- Verify your LinkedIn URL is filled in.
-- The "why this role" line is a placeholder draft based on context — feel free to swap with your own one-liner.
-- The three questions are written to signal product instinct (not feature-listing). If any feels off for your voice, replace it. Keeping them at three is part of the signal.
+- Replace `<LOOM_URL>` once you upload the recording.
+- "Why this role" line is drafted from context — feel free to rewrite in your own voice.
+- The three questions are written to signal product instinct (not feature-listing). Replace any that feels off for your voice. Keeping them at exactly three is part of the signal.
