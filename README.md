@@ -1,6 +1,8 @@
 # Scaler Sales Agent — BDA Cockpit
 
-Live: `<DEPLOYED_URL>` · Repo: `<GITHUB_URL>` · Loom: `<LOOM_URL>`
+Live: https://scaler-sales-agent-fawn.vercel.app · Repo: https://github.com/prateekparshwa/scaler-sales-agent · Loom: `<LOOM_URL>`
+
+> **Before you test the live app:** WhatsApp delivery uses the Twilio Sandbox. From the WhatsApp number you want messages on, send `join <phrase>` to `+1 415 523 8886` to opt-in (the phrase is in the submission email). The dashboard's onboarding screen asks for your number after that.
 
 ## 1. What you built
 

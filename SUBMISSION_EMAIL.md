@@ -17,9 +17,11 @@ Hi Amar, Abhimanyu —
 
 3. **What's the one metric on the BDA dashboard that would tell us this is working in production within 2 weeks?** Pickup rate? Test-take rate within 72h of call? Time-to-second-call? Naming the metric first changes which features we ship and which we skip.
 
-**Live deployed link:** `<DEPLOYED_URL>`
-**GitHub:** `<GITHUB_URL>` (public)
+**Live deployed link:** https://scaler-sales-agent-fawn.vercel.app
+**GitHub:** https://github.com/prateekparshwa/scaler-sales-agent (public)
 **Loom (<6 min):** `<LOOM_URL>`
+
+*Note: WhatsApp delivery uses Twilio Sandbox. Before testing, please send `join <phrase>` from your WhatsApp to `+1 415 523 8886`. The phrase is `<TWILIO_JOIN_PHRASE>` — get yours at twilio.com/console/sms/whatsapp/sandbox.*
 **README:** in the repo, three sections as required.
 
 Cheers,
