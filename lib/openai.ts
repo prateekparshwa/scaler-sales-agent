@@ -56,16 +56,13 @@ export async function withRetry<T>(
 
 export const MODELS = {
   // Highest-quality generation for the lead-facing PDF.
-  // NOTE: 2.5-pro free tier is 5 RPM / 25 per day. For a demo we use 2.5-flash
-  // everywhere (10 RPM / 250 per day) — quality is still excellent for this task.
-  // Set USE_GEMINI_PRO=1 to upgrade the PDF path if you have paid quota.
+  // Default: gemini-2.5-flash (free 15 RPM / 1500 RPD). Set USE_GEMINI_PRO=1 if you have paid quota.
   pdf: process.env.USE_GEMINI_PRO ? "gemini-2.5-pro" : "gemini-2.5-flash",
   // Fast/cheap for BDA-only nudge, question extraction, persona inference, cover.
-  fast: "gemini-2.5-flash",
-  // Audio transcription is handled separately via @google/genai native SDK
-  // (the OpenAI-compat endpoint does not include audio.transcriptions).
-  // Kept here for documentation only.
+  // Flash-Lite: 30 RPM, 1000 RPD on free tier — keeps the multi-step pipeline within quota.
+  fast: "gemini-2.5-flash-lite",
+  // Audio transcription is handled separately via @google/genai native SDK.
   audio: "gemini-2.5-flash",
   // Embeddings (must match the model used to build data/scaler-rag.json).
-  embedding: "text-embedding-004",
+  embedding: "gemini-embedding-001",
 } as const;
