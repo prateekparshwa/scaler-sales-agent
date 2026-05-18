@@ -1,4 +1,4 @@
-import { openai, MODELS } from "../openai";
+import { openai, MODELS, withRetry } from "../openai";
 import {
   LeadProfile,
   OpenQuestion,
@@ -98,15 +98,19 @@ ${context}
 
 Now write the PDF content as JSON.`;
 
-  const res = await openai().chat.completions.create({
-    model: MODELS.pdf,
-    messages: [
-      { role: "system", content: SYS },
-      { role: "user", content: user },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-  });
+  const res = await withRetry(
+    () =>
+      openai().chat.completions.create({
+        model: MODELS.pdf,
+        messages: [
+          { role: "system", content: SYS },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+      }),
+    "pdf-content"
+  );
 
   const parsed = JSON.parse(res.choices[0].message.content ?? "{}") as PdfContent;
   return {

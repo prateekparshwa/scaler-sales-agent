@@ -1,4 +1,4 @@
-import { openai, MODELS } from "../openai";
+import { openai, MODELS, withRetry } from "../openai";
 import { LeadProfile, PdfContent, PersonaSignals } from "../types";
 
 const SYS = `You write the SHORT WHATSAPP COVER MESSAGE that accompanies a personalised PDF being sent to a Scaler lead after a sales call.
@@ -26,15 +26,19 @@ PDF hook (for reference, do not repeat verbatim): ${pdfContent.hook}
 
 Write the cover message.`;
 
-  const res = await openai().chat.completions.create({
-    model: MODELS.fast,
-    messages: [
-      { role: "system", content: SYS },
-      { role: "user", content: user },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.6,
-  });
+  const res = await withRetry(
+    () =>
+      openai().chat.completions.create({
+        model: MODELS.fast,
+        messages: [
+          { role: "system", content: SYS },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.6,
+      }),
+    "cover"
+  );
 
   const parsed = JSON.parse(res.choices[0].message.content ?? "{}") as { message?: string };
   return parsed.message ?? `Hi ${profile.name.split(" ")[0]}, sending across the note we discussed — would mean a lot if you give it a read.`;

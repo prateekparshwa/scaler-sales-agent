@@ -1,4 +1,4 @@
-import { openai, MODELS } from "../openai";
+import { openai, MODELS, withRetry } from "../openai";
 import { LeadProfile, OpenQuestion } from "../types";
 
 export async function extractOpenQuestions(
@@ -17,15 +17,19 @@ Rules:
 
   const user = `Lead profile: ${JSON.stringify(profile)}\n\nTranscript:\n${transcript}`;
 
-  const res = await openai().chat.completions.create({
-    model: MODELS.fast,
-    messages: [
-      { role: "system", content: sys },
-      { role: "user", content: user },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.2,
-  });
+  const res = await withRetry(
+    () =>
+      openai().chat.completions.create({
+        model: MODELS.fast,
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+      }),
+    "extract"
+  );
 
   const raw = res.choices[0].message.content ?? "{}";
   const parsed = JSON.parse(raw) as { questions?: OpenQuestion[] };

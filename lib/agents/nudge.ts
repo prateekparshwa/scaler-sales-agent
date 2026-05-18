@@ -1,4 +1,4 @@
-import { openai, MODELS } from "../openai";
+import { openai, MODELS, withRetry } from "../openai";
 import { LeadProfile, Nudge, OpenQuestion, PersonaSignals } from "../types";
 
 const SYS = `You are writing a PRE-CALL WHATSAPP NUDGE for a Scaler BDA (Business Development Associate). They are about to dial this lead in 2 minutes and are reading this on their phone.
@@ -55,15 +55,19 @@ ${transcript || "(no call yet)"}
 
 Now write the BDA nudge.`;
 
-  const res = await openai().chat.completions.create({
-    model: MODELS.fast,
-    messages: [
-      { role: "system", content: SYS },
-      { role: "user", content: user },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.6,
-  });
+  const res = await withRetry(
+    () =>
+      openai().chat.completions.create({
+        model: MODELS.fast,
+        messages: [
+          { role: "system", content: SYS },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.6,
+      }),
+    "nudge"
+  );
 
   return JSON.parse(res.choices[0].message.content ?? "{}") as Nudge;
 }

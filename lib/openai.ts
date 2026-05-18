@@ -22,6 +22,38 @@ export function openai(): OpenAI {
   return client;
 }
 
+// Retry transient errors from Gemini (503 overloaded, 429 rate-limit, network blips).
+// Exponential backoff with jitter, max 3 attempts.
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  label = "call",
+  maxAttempts = 3
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const transient =
+        msg.includes("503") ||
+        msg.includes("429") ||
+        msg.includes("overloaded") ||
+        msg.includes("timeout") ||
+        msg.includes("ECONNRESET") ||
+        msg.includes("UND_ERR");
+      if (!transient || attempt === maxAttempts) throw err;
+      const delay = 800 * Math.pow(2, attempt - 1) + Math.random() * 400;
+      console.warn(
+        `[retry] ${label} attempt ${attempt} failed (${msg.slice(0, 80)}); retrying in ${Math.round(delay)}ms`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 export const MODELS = {
   // Highest-quality generation for the lead-facing PDF.
   // NOTE: 2.5-pro free tier is 5 RPM / 25 per day. For a demo we use 2.5-flash

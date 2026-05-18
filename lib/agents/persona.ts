@@ -1,4 +1,4 @@
-import { openai, MODELS } from "../openai";
+import { openai, MODELS, withRetry } from "../openai";
 import { LeadProfile, OpenQuestion, PersonaSignals } from "../types";
 
 const SYS = `You read a lead profile + their unanswered questions from a Scaler sales call and derive persona signals.
@@ -36,15 +36,19 @@ ${questions.map((q, i) => `${i + 1}. (${q.category}) ${q.question}`).join("\n")}
 Transcript (verbatim, for emotional cues):
 ${transcript}`;
 
-  const res = await openai().chat.completions.create({
-    model: MODELS.fast,
-    messages: [
-      { role: "system", content: SYS },
-      { role: "user", content: user },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.3,
-  });
+  const res = await withRetry(
+    () =>
+      openai().chat.completions.create({
+        model: MODELS.fast,
+        messages: [
+          { role: "system", content: SYS },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+      }),
+    "persona"
+  );
 
   return JSON.parse(res.choices[0].message.content ?? "{}") as PersonaSignals;
 }
