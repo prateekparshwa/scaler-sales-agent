@@ -10,7 +10,12 @@ A Next.js app that helps a Scaler BDA prepare for and follow up on sales calls. 
 
 ## 2. One failure I found (49 words)
 
-When I fed Meera's transcript with a deliberately ambiguous question about "campus placements", the agent grounded confidently on Scaler's `600+ hiring partners` line but **invented** a placement percentage that scaler.com doesn't actually publish. Fix: tightened the system prompt to require a verbatim source chunk before quoting any number, and added "internal-policy" chunks instructing refusal on undisclosed stats.
+The strongest honest failure from this project is the opening hook hallucination:
+Input: Fresh lead, no prior call.
+Output: "Hi Priya, thanks for connecting again — wanted to share what we discussed..."
+
+The agent fabricated prior contact ( thanks for connecting..) that never existed — a factual lie the BDA would not say to a prospect. 
+Root cause: the model defaulted to follow-up phrasing patterns from training data, ignoring the explicit cold-call context given in the prompt.
 
 ## 3. Scale plan — 1 lead/day → 100k leads/month (97 words)
 
