@@ -12,7 +12,7 @@ A Next.js app that helps a Scaler BDA prepare for and follow up on sales calls. 
 
 The strongest honest failure from this project is the opening hook hallucination:
 Input: Fresh lead, no prior call.
-Output: "Hi Priya, thanks for connecting again — wanted to share what we discussed..."
+Output: "Hi Priya, thanks for connecting again, wanted to share what we discussed..."
 
 The agent fabricated prior contact ( thanks for connecting..) that never existed — a factual lie the BDA would not say to a prospect. 
 Root cause: the model defaulted to follow-up phrasing patterns from training data, ignoring the explicit cold-call context given in the prompt.
