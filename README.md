@@ -8,7 +8,7 @@ Live: https://scaler-sales-agent-fawn.vercel.app · Repo: https://github.com/pra
 
 A Next.js app that helps a Scaler BDA prepare for and follow up on sales calls. The BDA can add a lead profile and either type in the call transcript or upload a call recording. Before the call, the app sends the BDA a WhatsApp message with a quick summary of the lead, the best talking points, likely objections, and a suggested opening line. After the call, it creates a personalised 2–3 page PDF for the lead, answering the questions they actually asked. The answers come only from approved Scaler website content, and the app does not make things up when information is missing. Before anything is sent to the lead, the BDA can approve it, edit the cover note, or skip it. Once approved, the PDF and message are sent to the lead on WhatsApp through Twilio. Both typed transcripts and audio uploads work on the live app
 
-## 2. One failure I found (49 words)
+## 2. One failure I found
 
 The strongest honest failure from this project is the opening hook hallucination:
 Input: Fresh lead, no prior call.
@@ -17,7 +17,7 @@ Output: "Hi Priya, thanks for connecting again, wanted to share what we discusse
 The agent fabricated prior contact ( thanks for connecting..) that never existed — a factual lie the BDA would not say to a prospect. 
 Root cause: the model defaulted to follow-up phrasing patterns from training data, ignoring the explicit cold-call context given in the prompt.
 
-## 3. Scale plan — 1 lead/day → 100k leads/month (97 words)
+## 3. Scale plan — 1 lead/day → 100k leads/month
 
 Two things break first. **(1) Per-lead LLM cost.** Gemini 2.5 Pro for the PDF (~6k input + 2k output tokens) is ~$0.02/lead. At 100k/month that's ~$2k just on PDFs — fine, but I'd route the bottom ~70% (warm/cold leads) to 2.5 Flash and reserve Pro for hot/late-funnel leads. **(2) Twilio's WhatsApp throughput + 24-hour session window.** Sandbox is single-number; production needs a verified WABA + pre-approved message templates, and outbound PDFs to leads who haven't messaged in 24h must use template-message flows. Both are scoping problems, not engineering ones.
 
