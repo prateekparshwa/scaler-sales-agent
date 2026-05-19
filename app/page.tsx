@@ -806,7 +806,7 @@ ${lead.nudge.inferredVsFact}`}
                 body: JSON.stringify({ pdfUrl: lead.pdfUrl, coverMessage: cover, leadPhoneE164: lead.leadPhoneE164 }),
               })}
             >
-              {busy === "approve" ? "Sending…" : "✅ APPROVE & SEND TO LEAD"}
+              {busy === "approve" ? "Sending…" : "✅ Approve & Send To Lead"}
             </button>
             <button
               className="btn btn-danger"
