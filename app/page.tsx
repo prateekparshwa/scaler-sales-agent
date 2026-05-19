@@ -588,7 +588,7 @@ function LeadCard({
       )}
 
       {lead.nudge && (
-        <details className="mb-3 text-sm" open={active}>
+        <details className="mb-3 text-sm" open={lead.status === "created" && active ? true : undefined}>
           <summary className="cursor-pointer font-medium">
             ✉️ Pre-call nudge (sent to BDA)
           </summary>
@@ -613,7 +613,7 @@ ${lead.nudge.inferredVsFact}`}
       )}
 
       {lead.persona && (
-        <details className="mb-3 text-sm" open={active}>
+        <details className="mb-3 text-sm" open={lead.status === "created" && active ? true : undefined}>
           <summary className="cursor-pointer font-medium">🎯 Persona signals</summary>
           <div className="mt-2 p-3 bg-slate-50 rounded border border-[color:var(--border)] text-xs space-y-1">
             <div>
