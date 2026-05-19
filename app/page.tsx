@@ -791,7 +791,7 @@ ${lead.nudge.inferredVsFact}`}
           />
           <div className="flex flex-wrap gap-2 mt-2">
             <button
-              className="btn btn-ghost"
+              className="btn border border-sky-400 text-sky-600 hover:bg-sky-50"
               disabled={!!busy || cover === (lead.coverMessage ?? "")}
               onClick={saveCover}
             >
