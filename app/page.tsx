@@ -415,6 +415,17 @@ function LeadCard({
   const [phoneStatus, setPhoneStatus] = useState<"saved" | "error" | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [pdfStep, setPdfStep] = useState(0);
+  const hasTranscript = !!lead.transcript?.trim();
+  const [nudgeExpanded, setNudgeExpanded] = useState(active && !hasTranscript);
+  const [personaExpanded, setPersonaExpanded] = useState(active && !hasTranscript);
+
+  // Collapse both sections the moment a transcript becomes available.
+  useEffect(() => {
+    if (hasTranscript) {
+      setNudgeExpanded(false);
+      setPersonaExpanded(false);
+    }
+  }, [hasTranscript]);
 
   const PDF_STEPS = [
     "Extracting questions from transcript…",
@@ -588,7 +599,7 @@ function LeadCard({
       )}
 
       {lead.nudge && (
-        <details className="mb-3 text-sm" open={lead.status === "created" && active ? true : undefined}>
+        <details className="mb-3 text-sm" open={nudgeExpanded} onToggle={(e) => setNudgeExpanded((e.target as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer font-medium">
             ✉️ Pre-call nudge (sent to BDA)
           </summary>
@@ -613,7 +624,7 @@ ${lead.nudge.inferredVsFact}`}
       )}
 
       {lead.persona && (
-        <details className="mb-3 text-sm" open={lead.status === "created" && active ? true : undefined}>
+        <details className="mb-3 text-sm" open={personaExpanded} onToggle={(e) => setPersonaExpanded((e.target as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer font-medium">🎯 Persona signals</summary>
           <div className="mt-2 p-3 bg-slate-50 rounded border border-[color:var(--border)] text-xs space-y-1">
             <div>
