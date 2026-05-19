@@ -16,8 +16,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [createStatus, setCreateStatus] = useState<"success" | "error" | null>(null);
-  const [twilioTest, setTwilioTest] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [twilioTesting, setTwilioTesting] = useState(false);
 
   // Profile fields
   const [name, setName] = useState("");
@@ -199,54 +197,10 @@ export default function Home() {
       <header className="lg:col-span-2 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Scaler BDA Cockpit</h1>
-          {twilioTest && (
-            <p className={`text-xs mt-0.5 font-medium ${twilioTest.ok ? "text-green-600" : "text-red-600"}`}>
-              {twilioTest.ok ? "✓" : "✕"} {twilioTest.msg}
-            </p>
-          )}
           <p className="text-sm text-[color:var(--muted)]">
             BDA WhatsApp: <span className="font-mono">{bdaPhone}</span> ·{" "}
             <button className="underline" onClick={() => setStep("onboarding")}>
-              change
-            </button>
-            {" · "}
-            <button
-              className="underline text-sky-600"
-              disabled={twilioTesting}
-              onClick={async () => {
-                setTwilioTesting(true);
-                setTwilioTest(null);
-                try {
-                  const res = await fetch("/api/debug/twilio", {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ to: bdaPhone }),
-                  });
-                  const data = await res.json();
-                  if (data.stage) {
-                    // Config or env error before Twilio API was called
-                    setTwilioTest({ ok: false, msg: `${data.stage}: ${data.error}${data.code ? ` (code ${data.code})` : ""}${data.moreInfo ? ` — ${data.moreInfo}` : ""}` });
-                  } else if (data.status === "delivered") {
-                    setTwilioTest({ ok: true, msg: `Delivered ✓ (SID: ${data.sid})` });
-                  } else if (data.status === "sent") {
-                    // Twilio accepted it but WhatsApp hasn't confirmed delivery — most likely the Sandbox session expired
-                    setTwilioTest({ ok: false, msg: `Status: sent — message reached Twilio but WhatsApp hasn't confirmed delivery. Your Sandbox session may have expired. On WhatsApp, send "join <your-phrase>" to +1 415 523 8886 to re-activate, then test again. SID: ${data.sid}` });
-                  } else if (data.ok) {
-                    setTwilioTest({ ok: true, msg: `Status: ${data.status} ✓ (SID: ${data.sid})` });
-                  } else {
-                    // Failed or undelivered — show error code if available
-                    setTwilioTest({ ok: false, msg: data.errorCode
-                      ? `Status: ${data.status} | Error ${data.errorCode}: ${data.errorMessage || "unknown"} | SID: ${data.sid}`
-                      : `Status: ${data.status} — no error code returned. SID: ${data.sid}` });
-                  }
-                } catch (e) {
-                  setTwilioTest({ ok: false, msg: String(e) });
-                } finally {
-                  setTwilioTesting(false);
-                }
-              }}
-            >
-              {twilioTesting ? "testing…" : "test WhatsApp"}
+              Change
             </button>
           </p>
         </div>
