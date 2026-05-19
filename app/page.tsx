@@ -80,7 +80,7 @@ export default function Home() {
     setYoe(p.profile.yoe != null ? String(p.profile.yoe) : "");
     setIntent(p.profile.intent ?? "");
     setLinkedinSummary(p.profile.linkedinSummary ?? "");
-    setTranscript(p.transcript);
+    // Transcript is NOT auto-filled — the user must upload it manually via text or audio.
   }
 
   async function uploadAndTranscribe() {
