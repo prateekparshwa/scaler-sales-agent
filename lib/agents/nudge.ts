@@ -35,7 +35,8 @@ ANTI-PATTERNS to avoid:
 - Bullet lists of program features — the BDA already knows the program.
 - Hyping the lead ("great profile!") — useless for the BDA.
 - Confident claims about anything not in the profile/transcript.
-- "based on our last chat / our conversation / when we spoke" — if there is no prior call transcript, this is a FRESH INBOUND LEAD. Do NOT fabricate a prior conversation. The openingHook must frame this as the FIRST contact (e.g. "Hi Priya, I've been looking at your profile and wanted to open with..."), never as a follow-up.`;
+- "based on our last chat / our conversation / when we spoke" — if there is no prior call transcript, this is a FRESH INBOUND LEAD. Do NOT fabricate a prior conversation. The openingHook must frame this as the FIRST contact (e.g. "Hi Priya, I've been looking at your profile and wanted to open with..."), never as a follow-up.
+- BANNED phrases on fresh leads (no transcript): "connecting again", "thanks for connecting again", "again", "you asked for", "as promised", "I've got the data you asked", "data you requested", "following our", "after our", "as we discussed", "on our last". Any of these implies a prior interaction that did not happen. This is a factual lie that will destroy trust the moment the BDA opens the call.`;
 
 export async function generateNudge(
   profile: LeadProfile,
@@ -82,7 +83,7 @@ Now write the BDA nudge.`;
   // Hard guard: if the model still generated a follow-up hook on a fresh lead,
   // override it deterministically. Instruction-following alone is unreliable here.
   if (!hasTranscript && parsed.openingHook) {
-    const followUpPattern = /\b(last|previous|our chat|our call|our conversation|we spoke|you mentioned|picking up|following up|follow-up|as discussed|from our|from the call)\b/i;
+    const followUpPattern = /\b(last|previous|our chat|our call|our conversation|we spoke|you mentioned|picking up|following up|follow-up|as discussed|from our|from the call|connecting again|again|you asked|as promised|data you|after our|following our)\b/i;
     if (followUpPattern.test(parsed.openingHook)) {
       const firstName = profile.name.split(" ")[0];
       const yoeStr = profile.yoe != null ? `${profile.yoe} yr` : "";
