@@ -52,6 +52,28 @@ OUTPUT: return JSON matching this shape:
   "programReference": "<the specific Scaler program this PDF anchors on, e.g. 'Scaler Academy' or 'Scaler Data Science & ML'>"
 }`;
 
+/**
+ * Extract the fee figure the BDA actually quoted on the call.
+ * Matches patterns like: "3.5 L", "3.5 lakh", "3,50,000", "Rs 3.5L", "₹3.5L", "3.99L" etc.
+ * Returns a normalised string like "Rs.3.5L" or null if no fee was mentioned.
+ */
+function extractTranscriptFee(transcript: string): string | null {
+  if (!transcript) return null;
+  // Match rupee/lakh figures: optional Rs/₹, then a number, then optional L/lakh/lacs
+  const match = transcript.match(
+    /(?:Rs\.?|₹)?\s*([\d,]+(?:\.\d+)?)\s*(?:L(?:akh)?s?|lacs?|lakh)/i
+  );
+  if (match) {
+    const raw = match[1].replace(/,/g, "");
+    const num = parseFloat(raw);
+    if (!isNaN(num) && num > 0.5 && num < 50) {
+      // Sanity-check: a realistic fee in lakhs (0.5L – 50L)
+      return `Rs.${num}L`;
+    }
+  }
+  return null;
+}
+
 export async function generatePdfContent(
   profile: LeadProfile,
   transcript: string,
@@ -59,6 +81,7 @@ export async function generatePdfContent(
   persona: PersonaSignals
 ): Promise<PdfContent> {
   const program = pickProgram(profile, persona);
+  const transcriptFee = extractTranscriptFee(transcript);
 
   // RAG: retrieve context per question, plus generic program context.
   const queries = [
@@ -90,6 +113,10 @@ export async function generatePdfContent(
 ${JSON.stringify(profile, null, 2)}
 
 LEAD YoE: ${profile.yoe != null ? `${profile.yoe} years` : "unknown"}. When citing target audience brackets from the corpus, ONLY use the bracket whose range includes this YoE. Do NOT cite a bracket that excludes it.
+${transcriptFee
+  ? `TRANSCRIPT FEE FIGURE (MANDATORY): The BDA quoted "${transcriptFee}" on this call. You MUST use this exact figure everywhere a fee is mentioned in the PDF — in section headings, body text, and the closing. Do NOT use the corpus sticker price (Rs.3,99,000 / Rs.3.99L) anywhere. Using a different number contradicts what the lead was told and destroys trust.`
+  : `NO FEE QUOTED ON CALL: No fee figure was mentioned in the transcript. Use the corpus figure (Rs.3,99,000) if you need to cite a fee.`
+}
 
 Persona signals (USE THIS — especially tonePrompt):
 ${JSON.stringify(persona, null, 2)}
