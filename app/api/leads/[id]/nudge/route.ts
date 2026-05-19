@@ -49,9 +49,22 @@ export async function POST(
   if (bodyBdaPhone) lead.bdaPhoneE164 = bodyBdaPhone;
 
   try {
-    const questions = await extractOpenQuestions(lead.profile, lead.transcript || "");
-    const persona = await inferPersona(lead.profile, questions, lead.transcript || "");
-    const nudge = await generateNudge(lead.profile, lead.transcript || "", questions, persona);
+    const transcriptForAI = lead.transcript?.trim() || "";
+    const questions = await extractOpenQuestions(lead.profile, transcriptForAI);
+    const persona = await inferPersona(lead.profile, questions, transcriptForAI);
+    const nudge = await generateNudge(lead.profile, transcriptForAI, questions, persona);
+
+    // Double-guard: if no real transcript exists, ALWAYS replace the opening hook
+    // here in the route — regardless of what generateNudge returned.
+    // This fires even if the transcript was non-empty whitespace or if the model
+    // somehow bypassed the override inside generateNudge.
+    if (!transcriptForAI) {
+      const firstName = lead.profile.name.split(" ")[0];
+      const yoe = lead.profile.yoe != null ? `${lead.profile.yoe}yr ` : "";
+      const role = lead.profile.role ?? "professional";
+      const co = lead.profile.company ? ` at ${lead.profile.company}` : "";
+      nudge.openingHook = `Hi ${firstName}, coming across your profile as a ${yoe}${role}${co} — keen to understand what's on your mind before we speak.`.slice(0, 140);
+    }
 
     lead.questions = questions;
     lead.persona = persona;
