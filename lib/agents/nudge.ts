@@ -80,17 +80,19 @@ Now write the BDA nudge.`;
 
   const parsed = JSON.parse(res.choices[0].message.content ?? "{}") as Nudge;
 
-  // Hard guard: if the model still generated a follow-up hook on a fresh lead,
-  // override it deterministically. Instruction-following alone is unreliable here.
-  if (!hasTranscript && parsed.openingHook) {
-    const followUpPattern = /\b(last|previous|our chat|our call|our conversation|we spoke|you mentioned|picking up|following up|follow-up|as discussed|from our|from the call|connecting again|again|you asked|as promised|data you|after our|following our)\b/i;
-    if (followUpPattern.test(parsed.openingHook)) {
-      const firstName = profile.name.split(" ")[0];
-      const yoeStr = profile.yoe != null ? `${profile.yoe} yr` : "";
-      const roleStr = profile.role ?? "your background";
-      const companyStr = profile.company ? ` at ${profile.company}` : "";
-      parsed.openingHook = `Hi ${firstName}, ${yoeStr} ${roleStr}${companyStr} — I want to open on what matters specifically for your situation, not a generic pitch.`.slice(0, 140);
-    }
+  // ALWAYS override the opening hook on fresh leads — never trust the model here.
+  // No regex can reliably catch every follow-up phrase the model invents.
+  // The hook is built deterministically from the lead's profile so it is guaranteed
+  // to be a first-contact opener and never imply a prior conversation.
+  if (!hasTranscript) {
+    const firstName = profile.name.split(" ")[0];
+    const yoeStr = profile.yoe != null ? `${profile.yoe}yr ` : "";
+    const roleStr = profile.role ?? "professional";
+    const companyStr = profile.company ? ` at ${profile.company}` : "";
+    const intentSnip = profile.intent
+      ? ` — keen to understand what's driving your interest in making a move`
+      : ` — want to make our call worth your time`;
+    parsed.openingHook = `Hi ${firstName}, coming across your profile as a ${yoeStr}${roleStr}${companyStr}${intentSnip}.`.slice(0, 140);
   }
 
   return parsed;
